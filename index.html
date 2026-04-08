@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI วิเคราะห์กฎหมาย - สำนักงานพระธรรมนูญ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #1b2631; --accent: #b03a2e; --bg: #f2f4f4; }
+        body { font-family: 'Kanit', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .cover { width: 100%; height: 160px; background: #2c3e50 url('https://via.placeholder.com/800x400?text=Military+Law+Office') center/cover; border-bottom: 4px solid var(--primary); }
+        .header { padding: 25px 20px; text-align: center; }
+        .map-name { margin: 0; font-size: 24px; color: var(--primary); }
+        .dev-tag { font-size: 14px; color: #7f8c8d; margin-top: 8px; }
+        .content { padding: 25px; }
+        input, textarea { width: 100%; padding: 14px; margin-bottom: 15px; border: 2px solid #ddd; border-radius: 10px; box-sizing: border-box; font-family: inherit; font-size: 15px; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 10px; background: var(--primary); color: white; font-weight: 600; cursor: pointer; transition: 0.3s; font-size: 16px; }
+        .btn:hover { background: #2c3e50; }
+        .btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+        .welcome-msg { display: none; background: #e8f8f5; padding: 15px; border-radius: 10px; color: #16a085; font-weight: 600; text-align: center; margin-bottom: 20px; border: 1px solid #d1f2eb; }
+        #result { margin-top: 20px; padding: 20px; background: #fafafa; border-radius: 10px; border-left: 5px solid var(--accent); display: none; line-height: 1.7; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="cover"></div>
+    <div class="header">
+        <h1 class="map-name">⚖️ แมพ จำลองชีวิตทหารไทย</h1>
+        <div class="dev-tag">
+            Power by: <span style="color: var(--primary); font-weight: 600;">สำนักงานพระธรรมนูญ</span>
+        </div>
+    </div>
+
+    <div class="content">
+        <div id="welcome-msg" class="welcome-msg"></div>
+
+        <div id="login-box">
+            <input type="text" id="user-input" placeholder='กรุณากรอกลิ้งค์โปรไฟล์ เช่น " https://www.roblox.com/th/users/123/profile "'>
+            <button id="login-btn" class="btn" onclick="doLogin()">ตรวจสอบสังกัดทหาร</button>
+        </div>
+
+        <div id="ask-box" style="display:none">
+            <textarea id="quest-input" placeholder="ระบุเหตุการณ์ที่ต้องการให้ AI วิเคราะห์..."></textarea>
+            <button id="ask-btn" class="btn" onclick="doAsk()">เริ่มวิเคราะห์ข้อมูล</button>
+            <div id="result"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentUser = "";
+    let currentRank = "";
+
+    async function doLogin() {
+        const val = document.getElementById('user-input').value.trim();
+        if (!val) return alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+
+        const btn = document.getElementById('login-btn');
+        btn.innerText = "กำลังตรวจสอบยศ...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ link: val })
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                currentUser = data.username;
+                currentRank = data.rank;
+                document.getElementById('login-box').style.display = 'none';
+                document.getElementById('ask-box').style.display = 'block';
+                const msg = document.getElementById('welcome-msg');
+                msg.style.display = 'block';
+                msg.innerText = `🎖️ สังกัด: ${currentRank} ${currentUser}`;
+            } else { alert("❌ " + data.message); }
+        } catch (err) { alert("❌ เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"); }
+        finally { btn.innerText = "ตรวจสอบสังกัดทหาร"; btn.disabled = false; }
+    }
+
+    async function doAsk() {
+        const q = document.getElementById('quest-input').value.trim();
+        if (!q) return alert("กรุณากรอกเหตุการณ์");
+
+        const box = document.getElementById('result');
+        const btn = document.getElementById('ask-btn');
+        
+        box.style.display = 'block';
+        box.innerHTML = "⌛ ศาลกำลังพิจารณาข้อกฎหมาย...";
+        btn.disabled = true;
+        btn.innerText = "กำลังวิเคราะห์...";
+
+        try {
+            const res = await fetch('/ask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: q, username: currentUser, rank: currentRank })
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                box.innerHTML = `<strong>⚖️ คำพิพากษา:</strong><br><br>${data.answer.replace(/\n/g, '<br>')}`;
+            } else { 
+                box.innerHTML = `<span style="color:red">❌ ${data.message}</span>`; 
+            }
+        } catch (err) { 
+            box.innerHTML = `<span style="color:red">❌ ระบบวิเคราะห์ขัดข้อง ไม่สามารถติดต่อเซิร์ฟเวอร์ได้</span>`; 
+        } finally { 
+            // 🌟 สำคัญมาก: รีเซ็ตปุ่มกลับมาให้กดถามครั้งที่ 2, 3 ได้เสมอ
+            btn.disabled = false; 
+            btn.innerText = "เริ่มวิเคราะห์ข้อมูล";
+        }
+    }
+</script>
+</body>
+</html>
